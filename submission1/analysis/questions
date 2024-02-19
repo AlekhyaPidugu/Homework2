@@ -1,0 +1,222 @@
+if (!require("pacman")) install.packages("pacman")
+pacman::p_load(tidyverse, ggplot2, dplyr, lubridate, stringr, readxl, data.table, gdata)
+
+#Read data before the questions 
+HCRIS_Data_v1996 <- readRDS('data/output/HCRIS_Data_v1996.rds')
+HCRIS_Data_v2010 <- readRDS('data/output/HCRIS_Data_v2010.rds')
+
+
+#QUESTION 1
+hospital_counts1996 <- HCRIS_Data_v1996 %>%
+  group_by(year, provider_number) %>%
+  summarise(reports_filed = n())
+
+hospital_counts2010 <- HCRIS_Data_v2010 %>%
+  group_by(year, provider_number) %>%
+  summarise(reports_filed = n())
+
+# Combine the data frames for both years
+multiple_reports_combined <- rbind(
+  mutate(hospital_counts1996, dataset = "1996"),
+  mutate(hospital_counts2010, dataset = "2010")
+)
+
+# Filter for hospitals that filed more than one report in the same year
+multiple_reports_combined <- multiple_reports_combined %>%
+  filter(reports_filed > 1)
+  
+# Plot a line graph for both years
+library(ggplot2)
+
+ggplot(multiple_reports_combined, aes(x = year, y = nrow(multiple_reports_combined), color = dataset)) +
+  geom_line() +
+  geom_point() +
+  labs(title = "Number of Hospitals Filing More Than One Report",
+       x = "Year",
+       y = "Number of Hospitals",
+       color = "Dataset")
+
+
+#QUESTION 2
+# Filter for hospitals that filed more than one report in the same year
+all_reports_combined <- all_reports_combined %>%
+  filter(reports_filed > 1)
+
+# Extract unique hospital IDs
+unique_hospital_ids <- unique(all_reports_combined$provider_number)
+
+# Print the number of unique hospital IDs
+cat("Number of unique hospital IDs:", length(unique_hospital_ids), "\n")
+
+
+#QUESTION 3 
+# Select relevant columns for analysis
+selected_columns <- c("year", "tot_charges")
+charges_data_v1996 <- HCRIS_Data_v1996[, selected_columns]
+charges_data_v2010 <- HCRIS_Data_v2010[, selected_columns]
+
+# Add a dataset identifier for each year
+charges_data_v1996$dataset <- "1996"
+charges_data_v2010$dataset <- "2010"
+
+# Combine the data frames
+charges_data <- rbind(charges_data_v1996, charges_data_v2010)
+
+# Filter out rows with missing or zero charges
+charges_data <- charges_data %>%
+  filter(!is.na(tot_charges) & tot_charges > 0)
+
+# Create a violin plot
+ggplot(charges_data, aes(x = factor(year), y = tot_charges, fill = factor(year))) +
+  geom_violin() +
+  labs(title = "Distribution of Total Charges by Year",
+       x = "Year",
+       y = "Total Charges",
+       fill = "Year") +
+  theme_minimal()
+
+#QUESTION 4
+# Select relevant columns for analysis
+selected_columns <- c("year", "tot_discounts", "tot_charges", "ip_charges", "icu_charges", "ancillary_charges",
+                       "tot_mcare_payment", "tot_discharges", "mcare_discharges")
+
+# Extract necessary columns from both datasets
+price_data_v1996 <- HCRIS_Data_v1996[, selected_columns]
+price_data_v2010 <- HCRIS_Data_v2010[, selected_columns]
+
+# Combine the datasets
+price_data <- rbind(
+  mutate(price_data_v1996, dataset = "1996"),
+  mutate(price_data_v2010, dataset = "2010")
+)
+
+# Calculate discount factor and estimated prices
+price_data <- price_data %>%
+  mutate(discount_factor = 1 - tot_discounts / tot_charges,
+         price_num = (ip_charges + icu_charges + ancillary_charges) * discount_factor - tot_mcare_payment,
+         price_denom = tot_discharges - mcare_discharges,
+         estimated_price = ifelse(price_denom > 0, price_num / price_denom, NA_real_))
+
+# Filter out outliers and negative prices
+price_data <- price_data %>%
+  filter(!is.na(estimated_price) & estimated_price > 0)
+
+#Create Violin plot
+ggplot(price_data, aes(x = factor(year), y = estimated_price, fill = factor(year))) +
+  geom_violin() +
+  labs(title = "Distribution of Estimated Prices by Year",
+       x = "Year",
+       y = "Estimated Prices",
+       fill = "Year") +
+  theme_minimal()
+
+
+#QUESTION 5
+# Define penalized hospitals based on whether the sum of the HRRP and HVBP amounts is negative
+data_2012 <- mutate(data_2012, penalty = ifelse(hvbp_payment + hrrp_payment < 0, TRUE, FALSE))
+
+# Calculate the estimated price using the correct formula
+data_2012 <- mutate(data_2012,
+                    discount_factor = 1 - tot_discounts / tot_charges,
+                    price_num = (ip_charges + icu_charges + ancillary_charges) * discount_factor - tot_mcare_payment,
+                    price_denom = tot_discharges - mcare_discharges,
+                    estimated_price = ifelse(price_denom > 0, price_num / price_denom, NA_real_))
+
+# Filter out outliers and negative prices
+data_2012 <- data_2012 %>%
+  filter(!is.na(estimated_price) & estimated_price > 0)
+
+# Calculate the average estimated price for penalized and non-penalized hospitals separately
+average_price <- data_2012 %>%
+  group_by(penalty) %>%
+  summarise(average_estimated_price = mean(estimated_price, na.rm = TRUE))
+
+# Print the results
+print(average_price)
+
+#Question 6
+# Define penalized hospitals based on whether the sum of the HRRP and HVBP amounts is negative
+data_2012 <- mutate(data_2012, penalty = ifelse(hvbp_payment + hrrp_payment < 0, TRUE, FALSE))
+
+# Calculate quartiles based on bed size
+data_2012 <- mutate(data_2012, quartile = ntile(beds, 4))
+
+# Create indicator variables for each quartile
+data_2012 <- mutate(data_2012,
+                    quartile_1 = ifelse(quartile == 1, 1, 0),
+                    quartile_2 = ifelse(quartile == 2, 1, 0),
+                    quartile_3 = ifelse(quartile == 3, 1, 0),
+                    quartile_4 = ifelse(quartile == 4, 1, 0))
+
+# Calculate the estimated price using the correct formula
+data_2012 <- mutate(data_2012,
+                    discount_factor = 1 - tot_discounts / tot_charges,
+                    price_num = (ip_charges + icu_charges + ancillary_charges) * discount_factor - tot_mcare_payment,
+                    price_denom = tot_discharges - mcare_discharges,
+                    estimated_price = ifelse(price_denom > 0, price_num / price_denom, NA_real_))
+
+# Filter out outliers and negative prices
+data_2012 <- data_2012 %>%
+  filter(!is.na(estimated_price) & estimated_price > 0)
+
+# Calculate the average estimated price for each quartile
+average_price_quartiles <- data_2012 %>%
+  group_by(quartile_1, quartile_2, quartile_3, quartile_4) %>%
+  summarise(average_estimated_price = mean(estimated_price, na.rm = TRUE))
+
+# Print the results
+print(average_price_quartiles)
+
+#QUESTION 7
+install.packages("MatchIt")
+library(MatchIt)
+#Nearest neighbor matching (1-to-1) with inverse variance distance based on quartiles of bed size
+threshold <- 0  # Adjust the threshold based on your criteria
+
+data_2012$treat <- as.factor(ifelse(data_2012$hvbp_payment > threshold, 1, 0))
+
+# Now, you can proceed with the matching:
+m.out_ivd <- matchit(treat ~ quartile_1 + quartile_2 + quartile_3 + quartile_4,
+                     data = data_2012,
+                     method = "nearest",
+                     distance = "inverse.variance")
+
+
+# Estimate treatment effect
+ate_inverse_variance <- summary(matched_data_inverse_variance)
+
+#Nearest neighbor matching (1-to-1) with Mahalanobis distance based on quartiles of bed size
+
+m.out_mahalanobis <- matchit(
+  treat ~ quartile_1 + quartile_2 + quartile_3 + quartile_4,
+  data = data_2012,
+  method = "nearest",
+  distance = "mahalanobis"
+)
+#Inverse propensity weighting, where the propensity scores are based on quartiles of bed size
+
+install.packages("WeightIt")
+library(WeightIt)
+
+treatment_column_index <- 27
+
+# Assuming you have quartile variables in your dataset
+propensity_model <- WeightIt::weightit(
+  formula = data_2012[, treatment_column_index] ~ quartile_1 + quartile_2 + quartile_3 + quartile_4,
+  data = data_2012,
+  method = "ps",
+  estimand = "ATE",
+  family = "binomial"
+)
+# Obtain the weights based on the inverse of the propensity scores
+weights <- WeightIt::weights(propensity_model)
+weights <- 1 / propensity_scores
+
+#Simple linear regression, adjusting for quartiles of bed size using dummy variables and appropriate interactions as discussed in class
+model <- lm(estimated_price ~ quartile_1 + quartile_2 + quartile_3 + quartile_4 +
+              quartile_1:quartile_2 + quartile_1:quartile_3 + quartile_1:quartile_4 +
+              quartile_2:quartile_3 + quartile_2:quartile_4 + quartile_3:quartile_4,
+            data = data_2012)
+
+# Print the summary of the regression model
+summary(model)

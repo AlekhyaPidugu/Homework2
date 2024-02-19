@@ -10,7 +10,7 @@ pacman::p_load(tidyverse, ggplot2, dplyr, lubridate)
 
 
 # Read and combine data ---------------------------------------------------
-source('data-code/H1_HCRISv1996.R')
+source('submission1/data-code/H1_HCRISv1996.R')
 source('data-code/H2_HCRISv2010.R')
 
 final.hcris.v1996=read_rds('data/output/HCRIS_Data_v1996.rds')

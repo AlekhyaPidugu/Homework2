@@ -1,0 +1,101 @@
+if (!require("pacman")) install.packages("pacman")
+pacman::p_load(tidyverse, ggplot2, dplyr, lubridate, stringr, readxl, data.table, gdata)
+
+#Read data before the questions 
+HCRIS_Data_v1996 <- readRDS('data/output/HCRIS_Data_v1996.rds')
+HCRIS_Data_v2010 <- readRDS('data/output/HCRIS_Data_v2010.rds')
+HCRIS_Data <- readRDS('data/output/HCRIS_Data.rds')
+
+
+# Question 5
+data_2012 <- HCRIS_Data %>%
+  filter(year == 2012)
+
+# Create a new variable 'penalty' based on the sum of HRRP and HVBP amounts
+data_2012 <- data_2012 %>%
+  mutate(penalty = ifelse(hrrp_payment + hvbp_payment < 0, "Penalized", "Not Penalized"))
+
+# Calculate average price for penalized and non-penalized hospitals, excluding NA values
+average_price <- data_2012 %>%
+  group_by(penalty) %>%
+  summarize(average_price = mean(tot_charges, na.rm = TRUE))
+
+# Print the results
+print(average_price)
+
+# Question 6
+data_2012 <- mutate(data_2012, penalty = ifelse(hvbp_payment + hrrp_payment < 0, TRUE, FALSE))
+
+# Calculate quartiles based on bed size
+data_2012 <- mutate(data_2012, quartile = ntile(beds, 4))
+
+# Create indicator variables for each quartile
+data_2012 <- mutate(data_2012,
+                    quartile_1 = ifelse(quartile == 1, 1, 0),
+                    quartile_2 = ifelse(quartile == 2, 1, 0),
+                    quartile_3 = ifelse(quartile == 3, 1, 0),
+                    quartile_4 = ifelse(quartile == 4, 1, 0))
+
+# Calculate the estimated price using the correct formula
+data_2012 <- mutate(data_2012,
+                    discount_factor = 1 - tot_discounts / tot_charges,
+                    price_num = (ip_charges + icu_charges + ancillary_charges) * discount_factor - tot_mcare_payment,
+                    price_denom = tot_discharges - mcare_discharges,
+                    estimated_price = ifelse(price_denom > 0, price_num / price_denom, NA_real_))
+
+# Filter out outliers and negative prices
+data_2012 <- data_2012 %>%
+  filter(!is.na(estimated_price) & estimated_price > 0)
+
+average_price_quartiles <- data_2012 %>%
+  group_by(quartile_1, quartile_2, quartile_3, quartile_4) %>%
+  summarise(average_estimated_price = mean(estimated_price, na.rm = TRUE))
+
+# Print the results
+print(average_price_quartiles)
+
+# Question 7
+if (!requireNamespace("Matching", quietly = TRUE)) {
+  install.packages("Matching")
+}
+#CASE1
+# Assuming 'treatment_group' is a binary variable indicating treatment/control
+library(Matching)
+
+# Create a distance matrix based on inverse variance
+distance_matrix <- cbind(quartile_1, quartile_2, quartile_3, quartile_4)
+
+# Perform matching
+nn_match <- Match(Y = estimated_price, Tr = treatment_group, X = distance_matrix, Weight.matrix = 1/variance)
+
+# Calculate average treatment effect
+ate_nn_inverse_variance <- mean(nn_match$est)
+
+# Store results
+result_nn_inverse_variance <- data.frame(Method = "NN Matching (Inverse Variance)", ATE = ate_nn_inverse_variance)
+
+
+#CASE2
+# Perform inverse propensity weighting
+ipw <- Weight(Y = estimated_price, Tr = treatment_group, X = cbind(quartile_1, quartile_2, quartile_3, quartile_4), weight.matrix = 1/propensity_score)
+
+# Calculate average treatment effect
+ate_ipw <- mean(ipw$weighted)
+
+# Store results
+result_ipw <- data.frame(Method = "Inverse Propensity Weighting", ATE = ate_ipw)
+
+#CASE3
+model <- lm(estimated_price ~ treatment_group + quartile_2 + quartile_3 + quartile_4, data = data_2012)
+
+# Calculate average treatment effect
+ate_regression <- coef(model)["treatment_group"]
+
+# Store results
+result_regression <- data.frame(Method = "Simple Linear Regression", ATE = ate_regression)
+
+#CASE4
+results_table <- rbind(result_nn_inverse_variance, result_nn_mahalanobis, result_ipw, result_regression)
+
+# Print the results table
+print(results_table)

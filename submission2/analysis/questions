@@ -10,12 +10,15 @@ HCRIS_Data <- readRDS('data/output/HCRIS_Data.rds')
 # was able to do directly on the quarto document. See qmd file for code
 
 #QUESTION 2
-unique_count <- final.hcris.data %>%
-  distinct(provider_number) %>%
+
+num_unique_hospitals <- HCRIS_Data %>%
+  group_by(provider_number) %>%
+  summarise(has_multiple_years = n_distinct(year)) %>%
+  filter(has_multiple_years > 1) %>%
   nrow()
 
-# Display the result
-print(unique_count)
+num_unique_hospitals
+
 
 #QUESTION 3 
 # Select relevant columns for analysis

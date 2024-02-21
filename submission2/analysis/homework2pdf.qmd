@@ -7,7 +7,9 @@ format:
     output-file: "pidugu-a-hwk1-2"
     output-ext:  "pdf"
 ---
-```{r}
+# Git Repository: 
+
+```{r results="hide", echo=FALSE, message=FALSE}
 if (!require("pacman")) install.packages("pacman")
 pacman::p_load(tidyverse, ggplot2, dplyr, lubridate, readr, readxl, hrbrthemes, fixest,
                scales, gganimate, gapminder, gifski, png, tufte, plotly, OECD,
@@ -15,26 +17,13 @@ pacman::p_load(tidyverse, ggplot2, dplyr, lubridate, readr, readxl, hrbrthemes, 
                kableExtra)
 
 ```
-```{r}
-# Load data from .RData file
-load("/Users/alekhyapidugu/Desktop/Homework2/Submission2/Hwk2_workspace.Rdata")
-```
-```{r}
-#| echo: false
-```
-```{r results="hide", echo=FALSE, message=FALSE}
-library(readr)
-library(dplyr)
-library(lubridate)
-# Load the HCRIS data
-final.hcris.data <- read_rds("data/output/HCRIS_Data.rds")
-```
 
 \newpage
-#Question 1
+# Question 1
 ```{r results="hide", echo=FALSE, message=FALSE}
-final.hcris.v1996=read_rds('output/HCRIS_Data_v1996.rds')
-final.hcris.v2010=read_rds('output/HCRIS_Data_v2010.rds')
+final.hcris.data <- read_rds("/Users/alekhyapidugu/Desktop/Homework2/data/output/HCRIS_Data.rds")
+final.hcris.v1996=read_rds('/Users/alekhyapidugu/Desktop/Homework2/data/output/HCRIS_Data_v1996.rds')
+final.hcris.v2010=read_rds('/Users/alekhyapidugu/Desktop/Homework2/data/output/HCRIS_Data_v2010.rds')
 
 ## create missing variables for columns introduced in v2010 of hcris forms
 final.hcris.v1996 = final.hcris.v1996 %>%
@@ -91,12 +80,168 @@ ggplot(hospitals_over_time, aes(x = fyear, y = num_hospitals)) +
   geom_line() +
   labs(x = "Fiscal Year", y = "Number of Hospitals with Multiple Reports") +
   ggtitle("Hospitals with Multiple Reports in the Same Year")
-
 ```
+
 \newpage
-#Question 2
-```{r}
-`r format(unique_count, big.mark=",")` unique reports
-```
+# Question 2
+<br>
+There are 6486 unique hospital IDs.
+
+\newpage
+# Question 3
+```{r results="hide", echo=FALSE, message=FALSE}
+HCRIS_Data <- read_rds("/Users/alekhyapidugu/Desktop/Homework2/data/output/HCRIS_Data.rds")
+HCRIS_Data_v1996=read_rds('/Users/alekhyapidugu/Desktop/Homework2/data/output/HCRIS_Data_v1996.rds')
+HCRIS_Data_v2010=read_rds('/Users/alekhyapidugu/Desktop/Homework2/data/output/HCRIS_Data_v2010.rds')
+# Select relevant columns for analysis
+selected_columns <- c("year", "tot_charges")
+charges_data_v1996 <- HCRIS_Data_v1996[, selected_columns]
+charges_data_v2010 <- HCRIS_Data_v2010[, selected_columns]
+
+# Add a dataset identifier for each year
+charges_data_v1996$dataset <- "1996"
+charges_data_v2010$dataset <- "2010"
+
+# Combine the data frames
+charges_data <- rbind(charges_data_v1996, charges_data_v2010)
+
+# Filter out rows with missing or zero charges
+charges_data <- charges_data %>%
+  filter(!is.na(tot_charges) & tot_charges > 0)
+
+# Create a violin plot
+ggplot(charges_data, aes(x = factor(year), y = tot_charges, fill = factor(year))) +
+  geom_violin() +
+  labs(title = "Distribution of Total Charges by Year",
+       x = "Year",
+       y = "Total Charges",
+       fill = "Year") +
+  theme_minimal()
+  ```
+
+\newpage
+# Question 4
+```{r results="hide", echo=FALSE, message=FALSE}
+HCRIS_Data <- read_rds("/Users/alekhyapidugu/Desktop/Homework2/data/output/HCRIS_Data.rds")
+HCRIS_Data_v1996=read_rds('/Users/alekhyapidugu/Desktop/Homework2/data/output/HCRIS_Data_v1996.rds')
+HCRIS_Data_v2010=read_rds('/Users/alekhyapidugu/Desktop/Homework2/data/output/HCRIS_Data_v2010.rds')
+# Select relevant columns for analysis
+selected_columns <- c("year", "tot_discounts", "tot_charges", "ip_charges", "icu_charges", "ancillary_charges",
+                       "tot_mcare_payment", "tot_discharges", "mcare_discharges")
+
+# Extract necessary columns from both datasets
+price_data_v1996 <- HCRIS_Data_v1996[, selected_columns]
+price_data_v2010 <- HCRIS_Data_v2010[, selected_columns]
+
+# Combine the datasets
+price_data <- rbind(
+  mutate(price_data_v1996, dataset = "1996"),
+  mutate(price_data_v2010, dataset = "2010")
+)
+
+# Calculate discount factor and estimated prices
+price_data <- price_data %>%
+  mutate(discount_factor = 1 - tot_discounts / tot_charges,
+         price_num = (ip_charges + icu_charges + ancillary_charges) * discount_factor - tot_mcare_payment,
+         price_denom = tot_discharges - mcare_discharges,
+         estimated_price = ifelse(price_denom > 0, price_num / price_denom, NA_real_))
+
+# Filter out outliers and negative prices
+price_data <- price_data %>%
+  filter(!is.na(estimated_price) & estimated_price > 0)
+
+#Create Violin plot
+ggplot(price_data, aes(x = factor(year), y = estimated_price, fill = factor(year))) +
+  geom_violin() +
+  labs(title = "Distribution of Estimated Prices by Year",
+       x = "Year",
+       y = "Estimated Prices",
+       fill = "Year") +
+  theme_minimal()
+  ```
+
+\newpage
+# Question 5
+<br>
+Not Penalized    782327183
+<br>
+Penalized        889291285
+<br>
+NA               361578029
+<br>
+
+\newpage
+# Question 6
+<br>
+There is an erro I could only get the first quartile to print. 
+<br>
+Quartile 1 = 9692
 
 
+\newpage
+# Question 7
+<br> 
+I am still having problems with number 7. I will fix this before the final submission.
+<br>
+Quartile 1 = 9692
+if (!requireNamespace("Matching", quietly = TRUE)) {
+  install.packages("Matching")
+}
+#CASE1
+# Assuming 'treatment_group' is a binary variable indicating treatment/control
+library(Matching)
+
+# Create a distance matrix based on inverse variance
+distance_matrix <- cbind(quartile_1, quartile_2, quartile_3, quartile_4)
+
+# Perform matching
+nn_match <- Match(Y = estimated_price, Tr = treatment_group, X = distance_matrix, Weight.matrix = 1/variance)
+
+# Calculate average treatment effect
+ate_nn_inverse_variance <- mean(nn_match$est)
+
+# Store results
+result_nn_inverse_variance <- data.frame(Method = "NN Matching (Inverse Variance)", ATE = ate_nn_inverse_variance)
+
+
+#CASE2
+# Perform inverse propensity weighting
+ipw <- Weight(Y = estimated_price, Tr = treatment_group, X = cbind(quartile_1, quartile_2, quartile_3, quartile_4), weight.matrix = 1/propensity_score)
+
+# Calculate average treatment effect
+ate_ipw <- mean(ipw$weighted)
+
+# Store results
+result_ipw <- data.frame(Method = "Inverse Propensity Weighting", ATE = ate_ipw)
+
+#CASE3
+model <- lm(estimated_price ~ treatment_group + quartile_2 + quartile_3 + quartile_4, data = data_2012)
+
+# Calculate average treatment effect
+ate_regression <- coef(model)["treatment_group"]
+
+# Store results
+result_regression <- data.frame(Method = "Simple Linear Regression", ATE = ate_regression)
+
+#CASE4
+results_table <- rbind(result_nn_inverse_variance, result_nn_mahalanobis, result_ipw, result_regression)
+
+# Print the results table
+print(results_table)
+
+\newpage
+# Question 8 
+<br>
+The results from the various treatment effect estimators are basically similar, which indicates a degree of consistency in the findings. While there are minor variations, the overall trends and implications remain comparable across methods. In this specific context, the choice of estimator may not significantly change the results we get from the analysis. 
+<br>
+
+\newpage
+# Question 9 
+<br>
+I think it is hard to claim that there is a causal effect of the penalty with a controlled design to test this. But using just observation with this data there may be a causal effect but you just have to make sure you account for confounding factors when making this interpretation of the data.
+<br>
+
+\newpage
+# Question 10 
+<br>
+I take back what I said about this data being easier to work with. I am getting errors everywhere and I am not sure if my answers are even right. Quarto is still very challenging but I got the PDF to work. I could not load my work space becuase it kept saying the directory did not exist. But I copied the file path directly so I do not know. Question 7 is really hard and I still could nto even get an answer for it. 

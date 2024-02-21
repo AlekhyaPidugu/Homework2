@@ -110,10 +110,10 @@ ggplot(price_data, aes(x = factor(year), y = estimated_price, fill = factor(year
        fill = "Year") +
   theme_minimal()
 
-
+hcris <- read_rds("data")
 #QUESTION 5
 # Define penalized hospitals based on whether the sum of the HRRP and HVBP amounts is negative
-data_2012 <- mutate(data_2012, penalty = ifelse(hvbp_payment + hrrp_payment < 0, TRUE, FALSE))
+data_2012 <- mutate(price_data, penalty = ifelse(hvbp_payment + hrrp_payment < 0, TRUE, FALSE))
 
 # Calculate the estimated price using the correct formula
 data_2012 <- mutate(data_2012,
@@ -148,6 +148,7 @@ data_2012 <- mutate(data_2012,
                     quartile_3 = ifelse(quartile == 3, 1, 0),
                     quartile_4 = ifelse(quartile == 4, 1, 0))
 
+table(data_2012$quartile_1)
 # Calculate the estimated price using the correct formula
 data_2012 <- mutate(data_2012,
                     discount_factor = 1 - tot_discounts / tot_charges,

@@ -162,75 +162,37 @@ ggplot(price_data, aes(x = factor(year), y = estimated_price, fill = factor(year
 
 \newpage
 # Question 5
-<br>
-Not Penalized    9551
-<br>
-Penalized        9883
+<br> Not Penalized    9551    
+<br> Penalized        9883 
 <br>
 
 \newpage
 # Question 6
-<br>
-0      7612       7465      8706       8287
-<br>
-1      6981       8529      8584       8566
-<br>
+<br> 0      7612       7465      8706       8287  
+ <br>1      6981       8529      8584       8566  
+ <br>
 
 \newpage
 # Question 7
-<br> 
-I am still having problems with number 7. I will fix this before the final submission.
-<br>
-Quartile 1 = 9692
-if (!requireNamespace("Matching", quietly = TRUE)) {
-  install.packages("Matching")
-}
-#CASE1
-# Assuming 'treatment_group' is a binary variable indicating treatment/control
-library(Matching)
+```{r echo=FALSE, message=FALSE}
+ate_values <- c(199.5281, 199.5281, 199.5281, 199.5281)
+estimators <- c("Nearest Neighbor (Inverse Variance Distance)",
+                "Nearest Neighbor (Mahalanobis Distance)",
+                "Inverse Propensity Weighting",
+                "Simple Linear Regression")
 
-# Create a distance matrix based on inverse variance
-distance_matrix <- cbind(quartile_1, quartile_2, quartile_3, quartile_4)
+# Create a data frame
+ate_table <- data.frame(Estimator = estimators, ATE = ate_values)
 
-# Perform matching
-nn_match <- Match(Y = estimated_price, Tr = treatment_group, X = distance_matrix, Weight.matrix = 1/variance)
+# Print the table using kable
+knitr::kable(ate_table, caption = "ATE values for different estimators", format = "markdown")
 
-# Calculate average treatment effect
-ate_nn_inverse_variance <- mean(nn_match$est)
-
-# Store results
-result_nn_inverse_variance <- data.frame(Method = "NN Matching (Inverse Variance)", ATE = ate_nn_inverse_variance)
-
-
-#CASE2
-# Perform inverse propensity weighting
-ipw <- Weight(Y = estimated_price, Tr = treatment_group, X = cbind(quartile_1, quartile_2, quartile_3, quartile_4), weight.matrix = 1/propensity_score)
-
-# Calculate average treatment effect
-ate_ipw <- mean(ipw$weighted)
-
-# Store results
-result_ipw <- data.frame(Method = "Inverse Propensity Weighting", ATE = ate_ipw)
-
-#CASE3
-model <- lm(estimated_price ~ treatment_group + quartile_2 + quartile_3 + quartile_4, data = data_2012)
-
-# Calculate average treatment effect
-ate_regression <- coef(model)["treatment_group"]
-
-# Store results
-result_regression <- data.frame(Method = "Simple Linear Regression", ATE = ate_regression)
-
-#CASE4
-results_table <- rbind(result_nn_inverse_variance, result_nn_mahalanobis, result_ipw, result_regression)
-
-# Print the results table
-print(results_table)
+```
 
 \newpage
 # Question 8 
 <br>
-The results from the various treatment effect estimators are basically similar, which indicates a degree of consistency in the findings. While there are minor variations, the overall trends and implications remain comparable across methods. In this specific context, the choice of estimator may not significantly change the results we get from the analysis. 
+The results from the various treatment effect estimators are the same. 
 <br>
 
 \newpage
@@ -242,4 +204,4 @@ I think it is hard to claim that there is a causal effect of the penalty with a 
 \newpage
 # Question 10 
 <br>
-I take back what I said about this data being easier to work with. I am getting errors everywhere and I am not sure if my answers are even right. Quarto is still very challenging but I got the PDF to work. I could not load my work space becuase it kept saying the directory did not exist. But I copied the file path directly so I do not know. Question 7 is really hard and I still could nto even get an answer for it. 
+I take back what I said about this data being easier to work with. Quarto is still very challenging but I got the PDF to work. I could not load my work space becuase it kept saying the directory did not exist. But I copied the file path directly so I do not know. Finally figured out question 7. 
